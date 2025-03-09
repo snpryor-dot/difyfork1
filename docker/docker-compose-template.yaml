@@ -23,8 +23,7 @@ services:
       # Mount the storage directory to the container, for storing user files.
       - ./volumes/app/storage:/app/api/storage
     networks:
-      - ssrf_proxy_network
-      - default
+    - default
 
   # worker service
   # The Celery worker for processing the queue.
@@ -48,7 +47,6 @@ services:
       # Mount the storage directory to the container, for storing user files.
       - ./volumes/app/storage:/app/api/storage
     networks:
-      - ssrf_proxy_network
       - default
 
   # Frontend web application.
@@ -120,8 +118,6 @@ services:
       GIN_MODE: ${SANDBOX_GIN_MODE:-release}
       WORKER_TIMEOUT: ${SANDBOX_WORKER_TIMEOUT:-15}
       ENABLE_NETWORK: ${SANDBOX_ENABLE_NETWORK:-true}
-      HTTP_PROXY: ${SANDBOX_HTTP_PROXY:-http://ssrf_proxy:3128}
-      HTTPS_PROXY: ${SANDBOX_HTTPS_PROXY:-http://ssrf_proxy:3128}
       SANDBOX_PORT: ${SANDBOX_PORT:-8194}
     volumes:
       - ./volumes/sandbox/dependencies:/dependencies
@@ -129,7 +125,7 @@ services:
     healthcheck:
       test: [ 'CMD', 'curl', '-f', 'http://localhost:8194/health' ]
     networks:
-      - ssrf_proxy_network
+      - default
 
   # plugin daemon
   plugin_daemon:
@@ -158,26 +154,6 @@ services:
     depends_on:
       - db
 
-  # ssrf_proxy server
-  # for more information, please refer to
-  # https://docs.dify.ai/learn-more/faq/install-faq#id-18.-why-is-ssrf_proxy-needed
-  ssrf_proxy:
-    image: ubuntu/squid:latest
-    restart: always
-    volumes:
-      - ./ssrf_proxy/squid.conf.template:/etc/squid/squid.conf.template
-      - ./ssrf_proxy/docker-entrypoint.sh:/docker-entrypoint-mount.sh
-    entrypoint: [ 'sh', '-c', "cp /docker-entrypoint-mount.sh /docker-entrypoint.sh && sed -i 's/\r$$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh && /docker-entrypoint.sh" ]
-    environment:
-      # pls clearly modify the squid env vars to fit your network environment.
-      HTTP_PORT: ${SSRF_HTTP_PORT:-3128}
-      COREDUMP_DIR: ${SSRF_COREDUMP_DIR:-/var/spool/squid}
-      REVERSE_PROXY_PORT: ${SSRF_REVERSE_PROXY_PORT:-8194}
-      SANDBOX_HOST: ${SSRF_SANDBOX_HOST:-sandbox}
-      SANDBOX_PORT: ${SANDBOX_PORT:-8194}
-    networks:
-      - ssrf_proxy_network
-      - default
 
   # Certbot service
   # use `docker-compose --profile certbot up` to start the certbot service.
@@ -591,10 +567,7 @@ services:
       - ./volumes/unstructured:/app/data
 
 networks:
-  # create a network between sandbox, api and ssrf_proxy, and can not access outside.
-  ssrf_proxy_network:
-    driver: bridge
-    internal: true
+  # create a network between sandbox, API .
   milvus:
     driver: bridge
   opensearch-net:
